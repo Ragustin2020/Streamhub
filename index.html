@@ -1,43 +1,223 @@
-# Personal Streaming Hub
+<!--
+Personal Streaming Hub (Option C)
+File: personal_streaming_hub.html
+Instructions: Save this file and open in a browser. Use the "Add Link" button to add your own tiles. Links are saved to localStorage.
+You can host with a static server: `python -m http.server 8000` then open http://localhost:8000/personal_streaming_hub.html
+-->
 
-A simple, static, self-hosted streaming dashboard that pulls together free & legal content sources into one clean interface.
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>My Streaming Hub — Free & Legal</title>
+  <style>
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#9aa4b2;--accent:#06b6d4;--glass: rgba(255,255,255,0.03)}
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial}
+    body{background:linear-gradient(180deg,#071022 0%, #051026 60%);color:#e6eef6}
+    .container{max-width:1100px;margin:28px auto;padding:20px}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
+    .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,var(--accent),#7c3aed);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px}
+    h1{margin:0;font-size:20px}
+    p.lead{margin:0;color:var(--muted);font-size:13px}
+    .controls{display:flex;gap:8px;margin-left:auto}
+    button{background:var(--card);border:1px solid rgba(255,255,255,0.03);color:inherit;padding:8px 12px;border-radius:10px;cursor:pointer}
+    button.ghost{background:transparent;border:1px dashed rgba(255,255,255,0.04)}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}
+    @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:560px){.grid{grid-template-columns:1fr}}
+    .card{background:var(--glass);padding:14px;border-radius:12px;min-height:90px;display:flex;align-items:center;gap:12px;border:1px solid rgba(255,255,255,0.02)}
+    .card .icon{width:56px;height:56px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;background:linear-gradient(135deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01))}
+    .card h3{margin:0;font-size:16px}
+    .card p{margin:4px 0 0;color:var(--muted);font-size:13px}
+    .small{font-size:12px;color:var(--muted)}
+    .actions{display:flex;gap:8px;margin-top:10px}
+    .footer{margin-top:18px;color:var(--muted);font-size:12px}
+    .topbar{display:flex;gap:10px;align-items:center}
+    .search{flex:1}
+    input[type=text]{width:100%;padding:8px 10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:#071226;color:inherit}
+    .tag{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid rgba(255,255,255,0.02);background:rgba(255,255,255,0.01)}
+    /* modal */
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center}
+    .modal{background:#061422;padding:18px;border-radius:12px;min-width:320px;max-width:680px;border:1px solid rgba(255,255,255,0.03)}
+    label{display:block;font-size:13px;margin-top:8px;color:var(--muted)}
+    textarea,select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:#071224;color:inherit}
+    .row{display:flex;gap:8px}
+    .smallbtn{padding:6px 8px}
+    .taglist{display:flex;gap:6px;flex-wrap:wrap}
+    .empty{padding:28px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.00));border:1px dashed rgba(255,255,255,0.02);text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">SH</div>
+      <div>
+        <h1>My Streaming Hub</h1>
+        <p class="lead">One-click dashboard for free &amp; legal streams, public-domain video, podcasts and official live channels.</p>
+      </div>
 
-## Preview
-![Streaming Hub Screenshot](screenshot.png)
+      <div class="controls">
+        <div style="width:260px" class="topbar">
+          <input id="q" class="search" type="text" placeholder="Search tiles..." />
+        </div>
+        <button id="addBtn">Add Link</button>
+        <button id="exportBtn" class="ghost">Export</button>
+        <button id="importBtn" class="ghost">Import</button>
+      </div>
+    </header>
 
-*(Add a `screenshot.png` image in the repository root to display the preview above.)*
+    <main>
+      <div id="grid" class="grid"></div>
 
-## Features
-- One-click tiles for your favorite free & legal streaming sources (YouTube subscriptions, Internet Archive movies, podcasts, etc.)
-- Add, edit, and delete custom tiles
-- Search by title or tags
-- Import/export your tile collection (JSON)
-- 100% client-side, no backend required
+      <div id="empty" class="empty" style="display:none">No tiles yet. Click <strong>Add Link</strong> to create your first quick tile.</div>
 
-## Getting Started
+      <div class="footer">Tip: Place this file on a NAS or run a tiny static server to access it from other devices. Example: <code>python -m http.server 8000</code>.</div>
+    </main>
+  </div>
 
-### Option 1: Run locally
-1. Download the repository.
-2. Open `index.html` in your browser.
+  <!-- modal -->
+  <div id="modal" class="modal-backdrop">
+    <div class="modal">
+      <h3 id="modalTitle">Add Link</h3>
+      <label>Title<input id="title" type="text" placeholder="E.g. YouTube: Subscriptions"/></label>
+      <label>URL<input id="url" type="text" placeholder="https://www.youtube.com/feed/subscriptions"/></label>
+      <label>Tags (comma separated)<input id="tags" type="text" placeholder="youtube,video,subscriptions"/></label>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+        <button id="cancel">Cancel</button>
+        <button id="save">Save</button>
+      </div>
+    </div>
+  </div>
 
-### Option 2: Host on GitHub Pages
-1. Fork or clone this repository.
-2. Make sure `index.html` is in the root of your default branch.
-3. Go to **Settings → Pages**.
-4. Under **Branch**, select `main` (or your default branch) and set the folder to `/ (root)`.
-5. Save, then visit your hub at:
-   ```
-   https://your-username.github.io/your-repo/
-   ```
+  <script>
+    // Default tiles: edit these to suit your region/devices. All are placeholders and should point to official pages.
+    const DEFAULT_LINKS = [
+      {title:'YouTube — Subscriptions', url:'https://www.youtube.com/feed/subscriptions', tags:['youtube','video']},
+      {title:'Internet Archive — Movies', url:'https://archive.org/details/movies', tags:['public-domain','movies']},
+      {title:'PublicDomainMovies.org', url:'https://publicdomainmovies.net/', tags:['public-domain','film']},
+      {title:'Official Live News (example)', url:'https://www.youtube.com/', tags:['live','news']},
+      {title:'Podcasts (your RSS)', url:'about:blank', tags:['podcast']},
+      {title:'Local Library (OverDrive/Libby)', url:'https://www.overdrive.com/', tags:['library']}
+    ];
 
-## Adding Links
-- Click **Add Link** in the dashboard.
-- Enter the title, URL, and optional tags.
-- Links are saved to your browser’s local storage.
+    const STORAGE_KEY = 'streamhub_tiles_v1';
+    const grid = document.getElementById('grid');
+    const q = document.getElementById('q');
+    const empty = document.getElementById('empty');
 
-## Backup & Restore
-- **Export** saves your tiles as a JSON file.
-- **Import** restores them on another device or browser.
+    function loadLinks(){
+      let raw = localStorage.getItem(STORAGE_KEY);
+      if(!raw){
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_LINKS));
+        return DEFAULT_LINKS.slice();
+      }
+      try{ return JSON.parse(raw) }catch(e){ console.error(e); return DEFAULT_LINKS.slice() }
+    }
 
----
-Enjoy your personal streaming hub!
+    function saveLinks(list){ localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+
+    function render(){
+      const list = loadLinks();
+      const term = q.value.trim().toLowerCase();
+      grid.innerHTML='';
+      const filtered = list.filter(l=> l.title.toLowerCase().includes(term) || (l.tags||[]).join(' ').includes(term));
+      if(filtered.length===0){ empty.style.display='block'; } else { empty.style.display='none' }
+      filtered.forEach((l,idx)=>{
+        const card = document.createElement('a');
+        card.className='card';
+        card.href = l.url || '#';
+        card.target='_blank';
+        card.rel='noopener';
+
+        const icon = document.createElement('div'); icon.className='icon'; icon.innerHTML = iconFor(l.title);
+        const meta = document.createElement('div');
+        const h = document.createElement('h3'); h.textContent = l.title;
+        const p = document.createElement('p'); p.className='small'; p.textContent = l.tags ? l.tags.join(' • ') : '';
+
+        const actions = document.createElement('div'); actions.className='actions';
+        const edit = document.createElement('button'); edit.className='smallbtn'; edit.textContent='Edit';
+        edit.onclick = (ev)=>{ ev.preventDefault(); openModal('edit',idx); };
+        const del = document.createElement('button'); del.className='smallbtn'; del.textContent='Delete';
+        del.onclick = (ev)=>{ ev.preventDefault(); if(confirm('Delete this tile?')){ let list=loadLinks(); list.splice(idx,1); saveLinks(list); render(); } };
+
+        actions.appendChild(edit); actions.appendChild(del);
+
+        meta.appendChild(h); meta.appendChild(p); meta.appendChild(actions);
+        card.appendChild(icon); card.appendChild(meta);
+        grid.appendChild(card);
+      });
+    }
+
+    function iconFor(title){
+      // simple initials badge or common favicon-like SVG
+      const initials = title.split(' ').slice(0,2).map(s=>s[0]).join('').toUpperCase();
+      return `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg"><rect rx="8" width="40" height="40" fill="url(#g)"/><text x="50%" y="54%" font-size="14" font-family="sans-serif" text-anchor="middle" fill="#fff">${initials}</text><defs><linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#06b6d4"/><stop offset="1" stop-color="#7c3aed"/></linearGradient></defs></svg>`;
+    }
+
+    // modal logic
+    const modal = document.getElementById('modal');
+    const titleIn = document.getElementById('title');
+    const urlIn = document.getElementById('url');
+    const tagsIn = document.getElementById('tags');
+    let modalMode='add', editIndex=null;
+
+    document.getElementById('addBtn').addEventListener('click', ()=>openModal('add'));
+    document.getElementById('cancel').addEventListener('click', closeModal);
+    document.getElementById('save').addEventListener('click', saveFromModal);
+
+    function openModal(mode, idx=null){
+      modalMode = mode; editIndex = idx;
+      modal.style.display='flex';
+      document.getElementById('modalTitle').textContent = mode==='add' ? 'Add Link' : 'Edit Link';
+      if(mode==='edit'){
+        const list = loadLinks(); const item = list[idx] || {};
+        titleIn.value = item.title || '';
+        urlIn.value = item.url || '';
+        tagsIn.value = (item.tags||[]).join(',');
+      } else { titleIn.value=''; urlIn.value=''; tagsIn.value=''; }
+    }
+    function closeModal(){ modal.style.display='none'; }
+
+    function saveFromModal(){
+      const t = titleIn.value.trim(); const u = urlIn.value.trim(); const tags = tagsIn.value.split(',').map(s=>s.trim()).filter(Boolean);
+      if(!t || !u){ alert('Please provide title and URL'); return; }
+      const list = loadLinks();
+      if(modalMode==='add'){
+        list.push({title:t,url:u,tags:tags});
+      } else {
+        list[editIndex] = {title:t,url:u,tags:tags};
+      }
+      saveLinks(list); closeModal(); render();
+    }
+
+    // export / import
+    document.getElementById('exportBtn').addEventListener('click', ()=>{
+      const data = localStorage.getItem(STORAGE_KEY) || '[]';
+      const blob = new Blob([data],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download='streamhub-links.json'; document.body.appendChild(a); a.click(); a.remove();
+    });
+
+    document.getElementById('importBtn').addEventListener('click', ()=>{
+      const input = document.createElement('input'); input.type='file'; input.accept='application/json';
+      input.onchange = (e)=>{
+        const f = e.target.files[0]; if(!f) return;
+        const reader = new FileReader(); reader.onload = ()=>{
+          try{ const parsed = JSON.parse(reader.result); if(Array.isArray(parsed)){ localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed)); render(); alert('Imported successfully'); } else alert('Invalid file'); }
+          catch(err){ alert('Error parsing JSON'); }
+        };
+        reader.readAsText(f);
+      };
+      input.click();
+    });
+
+    // search
+    q.addEventListener('input', ()=>render());
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
